@@ -1,0 +1,104 @@
+# Machine Learning Project
+
+```{r}
+library(caret)
+
+```
+## Read In Data
+
+Here, I read in the training dataset to use in modeling.  I am also going to check what the dataset looks like and see what the Classe variable distribution is.
+
+```{r}
+pml.training <- read.csv("~/Downloads/pml-training.csv")
+dim(pml.training)
+# names(pml.training) - commented out to save space
+table(pml.training$classe)
+```
+## Clean data
+
+Now, I am going to remove the items that have a lot of missing/NA data points and name it my.training This will allow the analysis to run and also make my data files more manageable.  I found the missing ones by looking at the dataset.
+
+```{r}
+my.training <- pml.training[,c(6:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+```
+## Prepare training data by spliting it up into a Train and Test
+
+Split up Training Set into a Training and Testing
+```{r}
+set.seed(1432)
+inTrain = createDataPartition(my.training$classe, p=.70)[[1]]
+training = my.training[inTrain,]
+testing = my.training[-inTrain,]
+dim(training); dim(testing)
+
+```
+## Choosing a model to use
+I first tried CART analysis on this but it didn't do a very good job so I left the output off this .Rmd document.
+
+I heard that RandomForest is good at predicting so I am going to try to use the rf option in train (from the caret package).  Professors mentioned that Random Forest is used in many competitions so I thought that would be a good fit for this since accuracy was key and explaining the exact model was not the main goal of this.
+
+```{r}
+modFitRF <- train(classe~.,methods="rf",data=training)
+print(modFitRF$finalModel)
+
+```
+Now that we have the RandomForest model (modFitRF), we should check to see how it did at predicting the training and testing sets
+
+```{r}
+table(training$classe,predict(modFitRF,training))
+table(testing$classe, predict(modFitRF,testing))
+predRF.tr <- predict(modFitRF,training)
+accuracyRF.tr = sum(predRF.tr ==training$classe)/length(predRF.tr)
+accuracyRF.tr
+predRF.te <- predict(modFitRF,testing)
+accuracyRF.te = sum(predRF.te ==testing$classe)/length(predRF.te)
+accuracyRF.te
+```
+
+
+## Using Cross Validation with Random Forest model
+The assignment asked to use Cross Validation so this is below using Random Forest with Cross Validation.  I am using a K=5 to add some accuracy but to not have it take forever on my computer.  That means we use 80% of the data each time so that seems reasonable to me. Plus, I already split out 70% into my training set so I have a set to test the error on after coming up with my model.
+
+```{r}
+ctrl <- trainControl(method = "cv", number  = 5)
+modFitRF2 = train(classe~ . , data = training, method = 'rf', trControl = ctrl)
+modFitRF2$results
+
+```
+## Checking accuracy on the Test holdout set
+
+I ran the model with Cross Validation and now I want to check the accuracy on my test set 
+```{r}
+predRF2 = predict(modFitRF2, testing)
+table(predRF2,testing$classe)
+accuracyRF2 = sum(predRF2 ==testing$classe)/length(predRF2)
+accuracyRF2
+```
+The accuracyRF2 above is my best guess at the out of sample error since it is based on a holdout sample I had in the original Training set. Since the model was not built using this data it should be a good representation of the out of sample error.
+
+In my opinion, this Model does a great job of predicting the classe variable and I will use that for predicting the 20 Test sets.
+
+## Predicting the 20 Test sets using the Random Forest model I developed above.
+
+I first need to read in the Test data and I made it look like the test set I used by removing the variables that were NA and missing in the Training set.
+```{r}
+pml.testing <- read.csv("~/Downloads/pml-testing.csv")
+pml.testing2 <- pml.testing[,c(6:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+
+dim(pml.testing2)
+
+```
+
+Here are my predictions for the 20 records in the test set. These have been submitted to the prediction submissions.
+
+```{r}
+predRF2.test = predict(modFitRF2,pml.testing2)
+predRF2.test
+
+```
+
+
+
+
+
+
